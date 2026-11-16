@@ -8,6 +8,25 @@ from .signal import order_profile, rolling_average_z
 
 # ---------- Utility ---------- #
 
+def coriolis_frequency(lat):
+    """
+    Calculate Coriolis frequency
+    f = 2Ωsin(θ)
+
+    Parameters
+    ----------
+    lat : float
+        Latitude [°].
+    
+    Returns
+    -------
+    f : float
+        Coriolis frequency [rad/s].
+    """
+    omega = 7.292115e-5
+
+    return 2 * omega * np.sin(np.deg2rad(lat))
+
 
 # ---------- CTD ---------- #
 
@@ -34,7 +53,105 @@ def brunt_vaisala_frequency(rho):
     return N2.rename('N2')
 
 
+def potential_energy(rho, area_z):
+    """
+    Calculate potential energy of water column.
+    BPE = int_{0}^{D} (ρ * g * z * A) dz
+
+    Parameters
+    ----------
+    rho : xr.DataArray
+        Density profile.
+    area_z : xr.DataArray
+        Lake area as function of depth.
+
+    Returns
+    -------
+    pe : float
+        Potential energy [J].
+    """
+    g = 9.81
+
+    return (rho * g * rho.depth * area_z).integrate('depth').item()
+
+
+def potential_energy_density(rho):
+    """
+    Calculate potential energy density of water column.
+    PE = int_{0}^{D} (rho * g * z) dz
+    
+    Parameters
+    ----------
+    rho : xr.DataArray
+        Density profile.
+    
+    Returns
+    -------
+    PE : float
+        Potential energy density [J / m^2].
+    """
+    g = 9.81
+
+    return (rho * g * rho.depth).integrate('depth').item()
+
+
 # ---------- ADCP ---------- #
+
+def kinetic_energy_density(u, v, w, rho=None):
+    """
+    Calculate kinetic energy density.
+    KE = ρ/2 (u^2 + v^2 + w^2)
+    
+    Parameters
+    ----------
+    u : xr.DataArray
+        E-W current velocity [m/s].
+    v : xr.DataArray
+        N-S current velocity [m/s].
+    w : xr.DataArray
+        Vertical current velocity [m/s].
+
+    Returns
+    -------
+    KE : xr.DataArray
+        Kinetic energy density [J/m^3].
+    """
+    if isinstance(rho, xr.DataArray):
+        rho = rho.reindex(depth=u.depth, method='nearest')
+    else:
+        rho = 1e3
+
+    KE = rho/2 * (u**2 + v**2 + w**2)
+
+    return KE.drop_vars(['range', 'serial_id', 'dir'], errors='ignore').rename('KE')
+
+
+def horizontal_kinetic_energy_density(u, v, rho=None):
+    """
+    Calculate horizontal kinetic energy density.
+    HKE = ρ/2 (u^2 + v^2)
+
+    Parameters
+    ----------
+    u : xr.DataArray
+        E-W current velocity [m/s].
+    v : xr.DataArray
+        N-S current velocity [m/s].
+
+    Returns
+    -------
+    HKE : xr.DataArray
+        Horizontal kinetic energy density [J/m^3].
+    """
+    if isinstance(rho, xr.DataArray):
+        rho = rho.reindex(depth=u.depth, method='nearest')
+    else:
+        rho = 1e3
+
+    HKE = rho/2 * (u**2 + v**2)
+
+    return HKE.drop_vars(['range', 'serial_id', 'dir'], errors='ignore').rename('HKE')
+
 
 def TKE(ds):
     """

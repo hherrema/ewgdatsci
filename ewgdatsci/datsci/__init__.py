@@ -1,5 +1,7 @@
 __all__ = [
     'lakes',
     'efd',
-    'signal'
+    'signal',
+    'meteo', 
+    'utils'
 ]
